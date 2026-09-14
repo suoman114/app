@@ -131,6 +131,14 @@ data/                      # 런타임 생성 (SQLite DB, clone 워크스페이�
   그대로 올라탐). Playwright로 디렉터리 진입/파일 열기/편집저장/
   업로드/바이너리 파일 처리까지 실제 브라우저에서 확인, git_ops.push를
   직접 호출해 편집·업로드된 내용이 원격에 정상 반영되는 것도 확인.
+- 2026-09-14: (버그 수정) `uvicorn --reload`가 `data/`까지 통째로
+  감시하는 바람에, clone/pull한 사이트 저장소 안에 `.py` 파일이
+  생기거나 바뀔 때마다 서버 전체가 재시작되어 진행 중이던 요청(다른
+  사이트의 clone 포함)이 끊기는 문제를 재현·확인. `WatchFiles detected
+  changes in 'data/repos/<site>/app.py'. Reloading...` 로그로 원인
+  특정. README의 실행 명령을 `--reload-dir server`로 감시 범위를
+  좁히도록 수정(재현 테스트로 재시작 없이 유지되는 것 확인), 실제
+  사용 시에는 `--reload` 없이 실행하도록 안내 분리.
 
 ## 5. 다음 기능 후보 (하나씩 검토 후 추가)
 
@@ -149,7 +157,18 @@ data/                      # 런타임 생성 (SQLite DB, clone 워크스페이�
 
 ```
 pip install -r requirements.txt
-uvicorn server.main:app --reload
+
+# 실제 사용
+uvicorn server.main:app --host 0.0.0.0 --port 8000
+
+# LTE-R VCS 코드 자체를 수정하며 확인할 때만 (반드시 --reload-dir server 같이 사용)
+uvicorn server.main:app --reload --reload-dir server
 ```
+
+`--reload-dir server` 없이 `--reload`만 쓰면 감시 범위가 `data/`까지
+포함돼, clone/pull한 사이트 저장소 안의 `.py` 파일이 바뀔 때마다
+서버가 재시작되어 진행 중인 작업이 끊긴다(4절 진행 로그의 버그 수정
+항목 참고). 이 프로젝트에서는 절대 `--reload-dir` 없이 `--reload`를
+쓰지 않는다.
 
 브라우저에서 `http://localhost:8000` 접속.

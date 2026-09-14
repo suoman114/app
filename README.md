@@ -11,8 +11,20 @@ push 하고, 메인 화면에서 사이트를 추가·수정·삭제하며 관�
 
 ```
 pip install -r requirements.txt
-uvicorn server.main:app --reload
+
+# 실제 사용(사이트 clone/pull/push 등)
+uvicorn server.main:app --host 0.0.0.0 --port 8000
+
+# LTE-R VCS 코드 자체를 수정하며 확인할 때만 --reload 사용
+uvicorn server.main:app --reload --reload-dir server
 ```
+
+> **주의**: `--reload`를 쓸 때는 반드시 `--reload-dir server`를 같이
+> 붙이세요. 그냥 `--reload`만 쓰면 clone/pull한 사이트 파일들이 있는
+> `data/` 폴더까지 통째로 감시해서, 저장소 안에 `.py` 파일이 생기거나
+> 바뀔 때마다(clone/pull 도중 흔함) 서버가 재시작되며 진행 중이던
+> 작업이 전부 끊깁니다. `--reload-dir server`는 감시 범위를 우리
+> 코드(`server/`)로만 좁혀 이 문제를 막습니다.
 
 브라우저에서 `http://localhost:8000` 접속 후:
 
