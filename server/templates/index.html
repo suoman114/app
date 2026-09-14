@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LTE-R VCS</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>LTE-R VCS</h1>
+    <p class="subtitle">사이트별 패키지 저장소 관리</p>
+  </header>
+
+  <main>
+    <section class="panel" id="settings-panel">
+      <h2>Bitbucket 인증 설정</h2>
+      <form id="settings-form" class="form-grid">
+        <label>Base URL
+          <input type="text" name="base_url" placeholder="https://bitbucket.company.com" />
+        </label>
+        <label>사용자명
+          <input type="text" name="username" placeholder="사용자명" />
+        </label>
+        <label>App Password
+          <input type="password" name="app_password" placeholder="설정되어 있으면 비워두면 유지됩니다" />
+        </label>
+        <button type="submit">저장</button>
+        <span id="settings-status" class="status-text"></span>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>사이트 추가</h2>
+      <form id="site-form" class="form-grid">
+        <input type="hidden" name="id" />
+        <label>사이트 이름
+          <input type="text" name="name" required />
+        </label>
+        <label>저장소 URL
+          <input type="text" name="repo_url" placeholder="https://bitbucket.company.com/scm/proj/repo.git" required />
+        </label>
+        <label>브랜치
+          <input type="text" name="branch" value="main" />
+        </label>
+        <label>설명
+          <input type="text" name="description" />
+        </label>
+        <button type="submit" id="site-form-submit">추가</button>
+        <button type="button" id="site-form-cancel" hidden>수정 취소</button>
+        <span id="site-form-status" class="status-text"></span>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>사이트 목록</h2>
+      <table id="sites-table">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>저장소 URL</th>
+            <th>브랜치</th>
+            <th>상태</th>
+            <th>액션</th>
+          </tr>
+        </thead>
+        <tbody id="sites-tbody">
+          <tr><td colspan="5" class="empty-row">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
