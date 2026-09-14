@@ -82,6 +82,14 @@ class SiteOut(BaseModel):
     status_error: str
 
 
+class ProgressOut(BaseModel):
+    action: str
+    message: str
+    percent: Optional[float]
+    running: bool
+    ok: Optional[bool]
+
+
 class ActionResult(BaseModel):
     ok: bool
     message: str
@@ -182,7 +190,7 @@ def clone_site(site_id: int, session: Session = Depends(get_session)):
     if site is None:
         raise HTTPException(404, "사이트를 찾을 수 없습니다.")
     username, app_password = _bitbucket_creds(session)
-    result = git_ops.clone(site.repo_url, site.branch, _site_path(site), username, app_password)
+    result = git_ops.clone(site.id, site.repo_url, site.branch, _site_path(site), username, app_password)
     if result.ok:
         site.last_synced_at = datetime.utcnow()
         session.add(site)
@@ -197,7 +205,7 @@ def pull_site(site_id: int, session: Session = Depends(get_session)):
     if site is None:
         raise HTTPException(404, "사이트를 찾을 수 없습니다.")
     username, app_password = _bitbucket_creds(session)
-    result = git_ops.pull(site.repo_url, site.branch, _site_path(site), username, app_password)
+    result = git_ops.pull(site.id, site.repo_url, site.branch, _site_path(site), username, app_password)
     if result.ok:
         site.last_synced_at = datetime.utcnow()
         session.add(site)
@@ -213,7 +221,7 @@ def push_site(site_id: int, payload: PushIn, session: Session = Depends(get_sess
         raise HTTPException(404, "사이트를 찾을 수 없습니다.")
     username, app_password = _bitbucket_creds(session)
     result = git_ops.push(
-        site.repo_url, site.branch, _site_path(site), username, app_password, payload.commit_message
+        site.id, site.repo_url, site.branch, _site_path(site), username, app_password, payload.commit_message
     )
     if result.ok:
         site.last_synced_at = datetime.utcnow()
@@ -221,3 +229,9 @@ def push_site(site_id: int, payload: PushIn, session: Session = Depends(get_sess
         session.commit()
     _log_activity(session, site, "push", result)
     return ActionResult(ok=result.ok, message=result.message)
+
+
+@router.get("/{site_id}/progress", response_model=ProgressOut)
+def site_progress(site_id: int):
+    p = git_ops.get_progress(site_id)
+    return ProgressOut(action=p.action, message=p.message, percent=p.percent, running=p.running, ok=p.ok)

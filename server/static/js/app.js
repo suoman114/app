@@ -111,10 +111,39 @@ function startEdit(site) {
   siteForm.scrollIntoView({ behavior: "smooth" });
 }
 
+function pollProgress(siteId, onUpdate) {
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const p = await api(`/api/sites/${siteId}/progress`);
+      onUpdate(p);
+    } catch (err) {
+      // ignore transient polling errors, keep trying until stopped
+    }
+    if (!stopped) setTimeout(tick, 600);
+  };
+  tick();
+  return () => {
+    stopped = true;
+  };
+}
+
+function progressButtonText(action, p) {
+  const pct = p.percent != null ? ` ${Math.round(p.percent)}%` : "";
+  return `${actionLabel(p.action || action)}${pct}`;
+}
+
 async function runAction(site, action, button) {
   const originalLabel = button.textContent;
+  const originalTitle = button.title;
   button.disabled = true;
-  button.textContent = "처리 중...";
+  button.textContent = "시작 중...";
+  const stopPolling = pollProgress(site.id, (p) => {
+    if (!p.running) return;
+    button.textContent = progressButtonText(action, p);
+    button.title = p.message || "";
+  });
   try {
     let body;
     if (action === "push") {
@@ -126,8 +155,10 @@ async function runAction(site, action, button) {
   } catch (err) {
     alert("오류: " + err.message);
   } finally {
+    stopPolling();
     button.disabled = false;
     button.textContent = originalLabel;
+    button.title = originalTitle;
     await loadSites();
     await loadActivity();
   }
@@ -311,17 +342,26 @@ async function runBulkAction(action, button, { commitMessage } = {}) {
   const results = [];
   for (let i = 0; i < targets.length; i++) {
     const site = targets[i];
-    button.textContent = `처리 중... (${i + 1}/${targets.length})`;
+    const prefix = `(${i + 1}/${targets.length}) ${site.name}: `;
+    button.textContent = prefix + "시작 중...";
+    const stopPolling = pollProgress(site.id, (p) => {
+      if (!p.running) return;
+      button.textContent = prefix + progressButtonText(action, p);
+      button.title = p.message || "";
+    });
     try {
       const body = action === "push" ? JSON.stringify({ commit_message: commitMessage || "" }) : undefined;
       const result = await api(`/api/sites/${site.id}/${action}`, { method: "POST", body });
       results.push({ site, ok: result.ok, message: result.message });
     } catch (err) {
       results.push({ site, ok: false, message: err.message });
+    } finally {
+      stopPolling();
     }
   }
   button.disabled = false;
   button.textContent = originalLabel;
+  button.title = "";
   const failed = results.filter((r) => !r.ok);
   const summary =
     `${results.length}개 중 ${results.length - failed.length}개 성공` +

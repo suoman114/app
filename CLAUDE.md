@@ -97,6 +97,16 @@ data/                      # 런타임 생성 (SQLite DB, clone 워크스페이�
   사이트만 선택 가능. 일괄 Push는 커밋 메시지를 한 번만 입력받아
   선택된 모든 사이트에 동일하게 사용. Playwright로 실제 브라우저에서
   검색/필터/전체선택/일괄 pull 동작 확인 완료.
+- 2026-09-14: clone/pull/push 진행률 표시 추가. clone은 GitPython의
+  `RemoteProgress` 콜백을, pull/push는 명시적 URL을 쓰는 설계상 GitPython
+  Remote 객체를 못 쓰므로 `git ... --progress`를 subprocess로 직접 실행해
+  stderr를 실시간으로 파싱하는 방식(`_run_git_streaming`)을 각각 사용.
+  진행 상태는 사이트별로 메모리에 저장하고 `GET /api/sites/{id}/progress`로
+  노출, 프런트엔드가 액션 진행 중 0.6초 간격으로 폴링해 버튼 텍스트에
+  퍼센트/메시지를 표시(단건·일괄 작업 모두). 로컬 파일 경로 clone은 git이
+  하드링크 최적화를 써서 진행률이 안 나올 수 있음을 테스트로 확인—
+  실제 Bitbucket HTTPS clone/pull/push에서는 항상 네트워크 전송이라
+  해당 없음.
 
 ## 5. 다음 기능 후보 (하나씩 검토 후 추가)
 

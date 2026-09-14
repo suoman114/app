@@ -25,6 +25,17 @@ Hard rules for this codebase:
   existing commits, not fail.
 - Keep `git_ops.py` framework-agnostic (no FastAPI imports) — it should
   be usable/testable standalone.
+- clone/pull/push all report live progress into the in-memory `_progress`
+  dict (keyed by site_id), read via `get_progress()` /
+  `GET /api/sites/{id}/progress`. clone uses GitPython's `RemoteProgress`
+  callback; pull/push can't (they intentionally bypass GitPython's Remote
+  object to avoid touching the stored remote URL — see the credentials
+  rule above), so they shell out to `git ... --progress` via
+  `_run_git_streaming`, which parses stderr live. When testing locally
+  with a filesystem-path remote, git's hardlink optimization can skip
+  progress output entirely (0 callback calls) — that's a local-clone
+  artifact, not a bug; pass `no_local=True` in a throwaway test to force
+  real progress output, but never add that flag to the real clone().
 
 Before making changes, check `CLAUDE.md` section 1 (아키텍처) and
 section 3 for the current architecture and conventions. When a task
