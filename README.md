@@ -19,3 +19,6 @@ uvicorn server.main:app --reload
 1. "Bitbucket 인증 설정"에서 사내 Bitbucket 사용자명/App Password를 저장합니다.
 2. "사이트 추가"에서 사이트 이름과 저장소 URL을 입력해 사이트를 등록합니다.
 3. 사이트 목록에서 Clone / Pull / Push 버튼으로 동기화합니다.
+4. Clone된 사이트는 "파일" 버튼으로 파일 탐색기를 열어 디렉터리를
+   클릭해 들어가고, 파일을 클릭해 편집·저장하거나 현재 폴더에
+   업로드할 수 있습니다. 저장/업로드 후에는 바로 Push할지 물어봅니다.

@@ -88,6 +88,38 @@
       </div>
     </section>
 
+    <section class="panel" id="files-panel" hidden>
+      <div class="files-header">
+        <h2>파일 탐색기 — <span id="files-site-name"></span></h2>
+        <button type="button" id="files-close-btn">닫기</button>
+      </div>
+      <div id="files-breadcrumb" class="breadcrumb"></div>
+      <div id="files-status" class="status-text"></div>
+      <table id="files-table">
+        <tbody id="files-tbody">
+          <tr><td class="empty-row">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+
+      <div class="upload-row">
+        <input type="file" id="upload-input" />
+        <button type="button" id="upload-btn">현재 폴더에 업로드</button>
+        <span id="upload-status" class="status-text"></span>
+      </div>
+
+      <div id="file-editor" hidden>
+        <div class="editor-toolbar">
+          <strong id="editor-path"></strong>
+          <span class="toolbar-spacer"></span>
+          <button type="button" id="editor-save-btn">저장</button>
+          <button type="button" id="editor-save-push-btn">저장 + Push</button>
+          <button type="button" id="editor-close-btn">편집기 닫기</button>
+        </div>
+        <textarea id="editor-textarea" rows="18" spellcheck="false"></textarea>
+        <span id="editor-status" class="status-text"></span>
+      </div>
+    </section>
+
     <section class="panel">
       <h2>최근 작업 이력</h2>
       <div class="table-scroll">

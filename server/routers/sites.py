@@ -14,11 +14,14 @@ from server.models import ActivityLog, BitbucketConfig, Site
 
 router = APIRouter(prefix="/api/sites", tags=["sites"])
 
-_SLUG_RE = re.compile(r"[^a-zA-Z0-9-]+")
+_ILLEGAL_FILENAME_CHARS_RE = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
 
 def _slugify(name: str) -> str:
-    slug = _SLUG_RE.sub("-", name.strip()).strip("-").lower()
+    # The slug doubles as the clone folder name under data/repos/, so keep
+    # it human-readable (site name as-is) and only strip characters that
+    # are illegal in filenames rather than transliterating/ASCII-folding.
+    slug = _ILLEGAL_FILENAME_CHARS_RE.sub("_", name.strip()).strip(" .")
     return slug or "site"
 
 

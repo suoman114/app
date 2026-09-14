@@ -25,6 +25,16 @@ Scope and conventions:
 - Give clear feedback for async actions (clone/pull/push) — loading
   state on the button, then a success/error message — since these can
   take a few seconds or fail (auth error, network, merge conflict).
+- The file browser panel (`#files-panel` in index.html, the file-browser
+  section of app.js) is also yours — breadcrumb navigation, file
+  list/editor/upload against `server/routers/files.py`'s endpoints. It
+  reuses `pollProgress`/the push flow from the clone/pull/push buttons
+  after a save or upload — don't duplicate that logic.
+
+Never build a filesystem or API path by string-concatenating user input
+(a file/directory name, an uploaded filename) — always send the raw path
+component to the backend and let `files.py`'s `_resolve_safe_path` do the
+validation; the frontend's job is display, not access control.
 
 After changes, start the server (`uvicorn server.main:app`) and fetch
 `/` to confirm the page renders without errors; check the browser

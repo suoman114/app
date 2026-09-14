@@ -24,6 +24,13 @@ Scope:
 - `server/routers/activity.py` — read-only activity log listing.
   Log entries are written by `sites.py`'s action endpoints
   (`_log_activity`), not here.
+- `server/routers/files.py` — browse/edit/upload files inside a cloned
+  site's working copy. Every endpoint takes a `path` and MUST resolve it
+  through `_resolve_safe_path` (which uses `Path.relative_to` against the
+  site's clone root) before touching the filesystem — never build a path
+  by simple string concatenation, that's a path-traversal hole. Uploaded
+  filenames must be reduced to `Path(name).name` before use for the same
+  reason.
 
 Conventions:
 

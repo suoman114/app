@@ -35,15 +35,24 @@ server/
   main.py                 # FastAPI app, 라우터 등록, "/" 메인 화면
   config.py                # 경로/설정 상수
   db.py                    # SQLModel 엔진/세션
-  models.py                # Site, BitbucketConfig 모델
-  git_ops.py                # clone/pull/push 등 git 연동 로직
+  models.py                # Site, BitbucketConfig, ActivityLog 모델
+  git_ops.py                # clone/pull/push/status/진행률 등 git 연동 로직
   routers/
-    sites.py               # 사이트 CRUD + clone/pull/push API
+    sites.py               # 사이트 CRUD + clone/pull/push + 진행률 API
     settings.py             # Bitbucket 인증 설정 API
+    activity.py              # 작업 이력 조회 API
+    files.py                 # clone된 사이트 파일 탐색/편집/업로드 API
   templates/               # Jinja2 템플릿 (메인 화면 등)
   static/css, static/js     # 스타일/클라이언트 스크립트
 data/                      # 런타임 생성 (SQLite DB, clone 워크스페이스). gitignore.
 ```
+
+사이트의 clone 폴더 이름(`Site.slug`)은 사이트 이름에서 파일명으로
+쓸 수 없는 문자만 제거한 값이다(한글 등 유니코드는 그대로 유지) —
+`data/repos/<사이트 이름>/`으로 저장되어 사람이 봐도 어떤 사이트인지
+바로 알 수 있게 한다. 이름이 중복되면 `-2`, `-3`을 붙여 유일하게
+만든다. 사이트 이름을 나중에 수정해도 이미 만들어진 clone 폴더명은
+바뀌지 않는다(재이름 변경 시 폴더까지 옮기는 기능은 아직 없음).
 
 ## 3. 오케스트레이션 방식 (서브에이전트)
 
@@ -107,6 +116,21 @@ data/                      # 런타임 생성 (SQLite DB, clone 워크스페이�
   하드링크 최적화를 써서 진행률이 안 나올 수 있음을 테스트로 확인—
   실제 Bitbucket HTTPS clone/pull/push에서는 항상 네트워크 전송이라
   해당 없음.
+- 2026-09-14: clone 폴더명을 사이트 이름 기반으로 변경(`_slugify`가
+  유니코드를 보존하고 파일명 금지 문자만 치환 — 이전에는 ASCII만
+  남겨서 한글 이름이 전부 "site"/"site-2"가 됐었음). 사이트별 파일
+  탐색기 추가: `server/routers/files.py`가 clone된 작업공간을
+  path traversal 방지 검증(`Path.relative_to`)을 거쳐 노출 —
+  디렉터리 목록(`GET .../files`), 파일 내용 조회/저장
+  (`GET/PUT .../files/content`, 바이너리는 편집 대신 안내 메시지),
+  업로드(`POST .../files/upload`, 업로드 파일명은 `Path(...).name`으로
+  경로 요소 제거 후 사용). 메인 화면에 "파일" 버튼 → 탐색기 패널
+  (브레드크럼 클릭 네비게이션, 파일 클릭 시 에디터, 업로드 폼).
+  저장/업로드 성공 시 바로 Push할지 확인 후 기존 push 엔드포인트를
+  재사용(별도 커밋 로직 없이 push()의 "dirty면 add+commit" 동작에
+  그대로 올라탐). Playwright로 디렉터리 진입/파일 열기/편집저장/
+  업로드/바이너리 파일 처리까지 실제 브라우저에서 확인, git_ops.push를
+  직접 호출해 편집·업로드된 내용이 원격에 정상 반영되는 것도 확인.
 
 ## 5. 다음 기능 후보 (하나씩 검토 후 추가)
 
@@ -117,6 +141,9 @@ data/                      # 런타임 생성 (SQLite DB, clone 워크스페이�
 - SSH 키 인증 지원 추가
 - App Password 저장 방식 강화(OS 키체인 연동 등)
 - 인증/권한(다중 사용자, 로그인)
+- 파일 탐색기: 파일/디렉터리 삭제, 새 디렉터리 생성, push 전 diff 미리보기
+- 사이트 이름 수정 시 기존 clone 폴더명도 함께 변경(현재는 최초 clone
+  시점 이름만 반영되고 이후 수정은 폴더명에 반영 안 됨)
 
 ## 6. 로컬 실행
 

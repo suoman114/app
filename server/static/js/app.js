@@ -290,6 +290,12 @@ function renderSites(sites) {
     pushBtn.onclick = () => runAction(site, "push", pushBtn);
     actionsCell.appendChild(pushBtn);
 
+    const filesBtn = document.createElement("button");
+    filesBtn.textContent = "파일";
+    filesBtn.disabled = !site.cloned;
+    filesBtn.onclick = () => openFileBrowser(site);
+    actionsCell.appendChild(filesBtn);
+
     const editBtn = document.createElement("button");
     editBtn.textContent = "수정";
     editBtn.onclick = () => startEdit(site);
@@ -416,6 +422,234 @@ async function loadActivity() {
     activityTbody.innerHTML = `<tr><td colspan="5" class="empty-row">오류: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
+
+// ---- File browser -------------------------------------------------
+
+const filesPanel = document.getElementById("files-panel");
+const filesSiteNameEl = document.getElementById("files-site-name");
+const filesBreadcrumbEl = document.getElementById("files-breadcrumb");
+const filesStatusEl = document.getElementById("files-status");
+const filesTbody = document.getElementById("files-tbody");
+const filesCloseBtn = document.getElementById("files-close-btn");
+const uploadInput = document.getElementById("upload-input");
+const uploadBtn = document.getElementById("upload-btn");
+const uploadStatusEl = document.getElementById("upload-status");
+const fileEditor = document.getElementById("file-editor");
+const editorPathEl = document.getElementById("editor-path");
+const editorTextarea = document.getElementById("editor-textarea");
+const editorStatusEl = document.getElementById("editor-status");
+const editorSaveBtn = document.getElementById("editor-save-btn");
+const editorSavePushBtn = document.getElementById("editor-save-push-btn");
+const editorCloseBtn = document.getElementById("editor-close-btn");
+
+let filesSite = null;
+let filesCurrentPath = "";
+let editorCurrentPath = null;
+
+async function pushSiteWithPrompt(site, statusEl) {
+  const commit_message = window.prompt("커밋 메시지를 입력하세요 (선택)", "") || "";
+  if (statusEl) statusEl.textContent = "Push 중...";
+  const stopPolling = pollProgress(site.id, (p) => {
+    if (!p.running || !statusEl) return;
+    statusEl.textContent = progressButtonText("push", p);
+  });
+  try {
+    const result = await api(`/api/sites/${site.id}/push`, {
+      method: "POST",
+      body: JSON.stringify({ commit_message }),
+    });
+    if (statusEl) statusEl.textContent = result.message;
+    alert(result.message);
+  } catch (err) {
+    if (statusEl) statusEl.textContent = "오류: " + err.message;
+    alert("오류: " + err.message);
+  } finally {
+    stopPolling();
+    await loadSites();
+    await loadActivity();
+  }
+}
+
+function closeFileEditor() {
+  fileEditor.hidden = true;
+  editorCurrentPath = null;
+  editorTextarea.value = "";
+  editorStatusEl.textContent = "";
+}
+
+function renderBreadcrumb() {
+  const parts = filesCurrentPath ? filesCurrentPath.split("/") : [];
+  filesBreadcrumbEl.innerHTML = "";
+
+  const rootLink = document.createElement("a");
+  rootLink.href = "#";
+  rootLink.textContent = filesSite.name;
+  rootLink.onclick = (e) => {
+    e.preventDefault();
+    navigateTo("");
+  };
+  filesBreadcrumbEl.appendChild(rootLink);
+
+  let acc = "";
+  for (const part of parts) {
+    acc = acc ? `${acc}/${part}` : part;
+    const sep = document.createElement("span");
+    sep.textContent = " / ";
+    filesBreadcrumbEl.appendChild(sep);
+    const link = document.createElement("a");
+    link.href = "#";
+    link.textContent = part;
+    const targetPath = acc;
+    link.onclick = (e) => {
+      e.preventDefault();
+      navigateTo(targetPath);
+    };
+    filesBreadcrumbEl.appendChild(link);
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function loadFileList() {
+  renderBreadcrumb();
+  filesStatusEl.textContent = "불러오는 중...";
+  filesTbody.innerHTML = "";
+  try {
+    const data = await api(`/api/sites/${filesSite.id}/files?path=${encodeURIComponent(filesCurrentPath)}`);
+    filesStatusEl.textContent = "";
+    if (data.entries.length === 0) {
+      filesTbody.innerHTML = '<tr><td class="empty-row">빈 디렉토리입니다.</td></tr>';
+      return;
+    }
+    for (const entry of data.entries) {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      const link = document.createElement("a");
+      link.href = "#";
+      link.textContent = `${entry.type === "dir" ? "📁" : "📄"} ${entry.name}`;
+      const entryPath = filesCurrentPath ? `${filesCurrentPath}/${entry.name}` : entry.name;
+      link.onclick = (e) => {
+        e.preventDefault();
+        if (entry.type === "dir") navigateTo(entryPath);
+        else openFileEditor(entryPath);
+      };
+      nameTd.appendChild(link);
+      tr.appendChild(nameTd);
+
+      const sizeTd = document.createElement("td");
+      sizeTd.className = "sync-time";
+      sizeTd.textContent = entry.type === "dir" ? "" : formatFileSize(entry.size);
+      tr.appendChild(sizeTd);
+
+      filesTbody.appendChild(tr);
+    }
+  } catch (err) {
+    filesStatusEl.textContent = "오류: " + err.message;
+  }
+}
+
+function navigateTo(path) {
+  filesCurrentPath = path;
+  closeFileEditor();
+  loadFileList();
+}
+
+function openFileBrowser(site) {
+  filesSite = site;
+  filesCurrentPath = "";
+  filesSiteNameEl.textContent = site.name;
+  filesPanel.hidden = false;
+  closeFileEditor();
+  loadFileList();
+  filesPanel.scrollIntoView({ behavior: "smooth" });
+}
+
+filesCloseBtn.addEventListener("click", () => {
+  filesPanel.hidden = true;
+  filesSite = null;
+});
+
+async function openFileEditor(path) {
+  editorStatusEl.textContent = "불러오는 중...";
+  fileEditor.hidden = false;
+  try {
+    const data = await api(`/api/sites/${filesSite.id}/files/content?path=${encodeURIComponent(path)}`);
+    if (data.binary) {
+      editorTextarea.value = "";
+      editorTextarea.disabled = true;
+      editorStatusEl.textContent = "바이너리 파일은 편집할 수 없습니다.";
+      editorPathEl.textContent = path;
+      editorCurrentPath = null;
+      return;
+    }
+    editorTextarea.disabled = false;
+    editorTextarea.value = data.content;
+    editorPathEl.textContent = path;
+    editorStatusEl.textContent = "";
+    editorCurrentPath = path;
+  } catch (err) {
+    editorStatusEl.textContent = "오류: " + err.message;
+  }
+}
+
+editorCloseBtn.addEventListener("click", closeFileEditor);
+
+async function saveCurrentFile() {
+  if (!editorCurrentPath) return false;
+  editorStatusEl.textContent = "저장 중...";
+  try {
+    const result = await api(`/api/sites/${filesSite.id}/files/content`, {
+      method: "PUT",
+      body: JSON.stringify({ path: editorCurrentPath, content: editorTextarea.value }),
+    });
+    editorStatusEl.textContent = result.message;
+    return true;
+  } catch (err) {
+    editorStatusEl.textContent = "오류: " + err.message;
+    return false;
+  }
+}
+
+editorSaveBtn.addEventListener("click", async () => {
+  const ok = await saveCurrentFile();
+  if (ok && confirm("변경사항을 지금 Push할까요?")) {
+    await pushSiteWithPrompt(filesSite, editorStatusEl);
+  }
+});
+
+editorSavePushBtn.addEventListener("click", async () => {
+  const ok = await saveCurrentFile();
+  if (ok) await pushSiteWithPrompt(filesSite, editorStatusEl);
+});
+
+uploadBtn.addEventListener("click", async () => {
+  const file = uploadInput.files[0];
+  if (!file) {
+    alert("업로드할 파일을 선택하세요.");
+    return;
+  }
+  uploadStatusEl.textContent = "업로드 중...";
+  try {
+    const formData = new FormData();
+    formData.append("path", filesCurrentPath);
+    formData.append("file", file);
+    const res = await fetch(`/api/sites/${filesSite.id}/files/upload`, { method: "POST", body: formData });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.detail || "업로드 실패");
+    uploadStatusEl.textContent = result.message;
+    uploadInput.value = "";
+    await loadFileList();
+    if (confirm("업로드한 파일을 지금 Push할까요?")) {
+      await pushSiteWithPrompt(filesSite, uploadStatusEl);
+    }
+  } catch (err) {
+    uploadStatusEl.textContent = "오류: " + err.message;
+  }
+});
 
 loadSettings();
 loadSites();
