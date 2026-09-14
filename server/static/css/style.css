@@ -91,6 +91,39 @@ th, td {
 .badge-group { display: flex; gap: 4px; flex-wrap: wrap; }
 .sync-time { font-size: 0.8rem; opacity: 0.75; white-space: nowrap; }
 
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.toolbar input[type="search"] {
+  flex: 1 1 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.toolbar select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.toolbar-spacer { flex: 1 1 auto; }
+
+.toolbar button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .row-actions button {

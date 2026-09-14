@@ -5,6 +5,14 @@ const siteFormSubmit = document.getElementById("site-form-submit");
 const siteFormCancel = document.getElementById("site-form-cancel");
 const settingsForm = document.getElementById("settings-form");
 const settingsStatus = document.getElementById("settings-status");
+const siteSearchInput = document.getElementById("site-search");
+const statusFilterSelect = document.getElementById("status-filter");
+const selectAllCheckbox = document.getElementById("select-all-checkbox");
+const bulkPullBtn = document.getElementById("bulk-pull-btn");
+const bulkPushBtn = document.getElementById("bulk-push-btn");
+
+let allSites = [];
+const selectedIds = new Set();
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -158,15 +166,61 @@ function formatSyncTime(iso) {
   return d.toLocaleString("ko-KR");
 }
 
+function siteStatusKey(site) {
+  if (!site.cloned) return "not_cloned";
+  if (site.dirty) return "dirty";
+  if (site.behind > 0) return "behind";
+  if (site.ahead > 0) return "ahead";
+  return "clean";
+}
+
+function matchesSearch(site, query) {
+  if (!query) return true;
+  const haystack = `${site.name} ${site.repo_url} ${site.description}`.toLowerCase();
+  return haystack.includes(query);
+}
+
+function getFilteredSites() {
+  const query = siteSearchInput.value.trim().toLowerCase();
+  const statusFilter = statusFilterSelect.value;
+  return allSites.filter((site) => {
+    if (!matchesSearch(site, query)) return false;
+    if (statusFilter !== "all" && siteStatusKey(site) !== statusFilter) return false;
+    return true;
+  });
+}
+
+function renderFilteredSites() {
+  const filtered = getFilteredSites();
+  // drop selections for sites that no longer exist (e.g. deleted)
+  for (const id of [...selectedIds]) {
+    if (!allSites.some((s) => s.id === id)) selectedIds.delete(id);
+  }
+  renderSites(filtered);
+  updateSelectAllState(filtered.filter((s) => s.cloned));
+}
+
+function updateSelectAllState(selectableSites) {
+  if (selectableSites.length === 0) {
+    selectAllCheckbox.checked = false;
+    selectAllCheckbox.indeterminate = false;
+    return;
+  }
+  const selectedCount = selectableSites.filter((s) => selectedIds.has(s.id)).length;
+  selectAllCheckbox.checked = selectedCount === selectableSites.length;
+  selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < selectableSites.length;
+}
+
 function renderSites(sites) {
   if (sites.length === 0) {
-    sitesTbody.innerHTML = '<tr><td colspan="6" class="empty-row">등록된 사이트가 없습니다.</td></tr>';
+    sitesTbody.innerHTML = '<tr><td colspan="7" class="empty-row">조건에 맞는 사이트가 없습니다.</td></tr>';
     return;
   }
   sitesTbody.innerHTML = "";
   for (const site of sites) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
+      <td></td>
       <td>${escapeHtml(site.name)}</td>
       <td>${escapeHtml(site.repo_url)}</td>
       <td>${escapeHtml(site.branch)}</td>
@@ -174,6 +228,17 @@ function renderSites(sites) {
       <td class="sync-time">${formatSyncTime(site.last_synced_at)}</td>
       <td class="row-actions"></td>
     `;
+    const checkboxCell = tr.querySelector("td");
+    const rowCheckbox = document.createElement("input");
+    rowCheckbox.type = "checkbox";
+    rowCheckbox.disabled = !site.cloned;
+    rowCheckbox.checked = selectedIds.has(site.id);
+    rowCheckbox.onchange = () => {
+      if (rowCheckbox.checked) selectedIds.add(site.id);
+      else selectedIds.delete(site.id);
+      updateSelectAllState(getFilteredSites().filter((s) => s.cloned));
+    };
+    checkboxCell.appendChild(rowCheckbox);
     const actionsCell = tr.querySelector(".row-actions");
 
     const cloneBtn = document.createElement("button");
@@ -211,12 +276,76 @@ function renderSites(sites) {
 
 async function loadSites() {
   try {
-    const sites = await api("/api/sites");
-    renderSites(sites);
+    allSites = await api("/api/sites");
+    renderFilteredSites();
   } catch (err) {
-    sitesTbody.innerHTML = `<tr><td colspan="6" class="empty-row">오류: ${escapeHtml(err.message)}</td></tr>`;
+    sitesTbody.innerHTML = `<tr><td colspan="7" class="empty-row">오류: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
+
+siteSearchInput.addEventListener("input", renderFilteredSites);
+statusFilterSelect.addEventListener("change", renderFilteredSites);
+
+selectAllCheckbox.addEventListener("change", () => {
+  const selectable = getFilteredSites().filter((s) => s.cloned);
+  if (selectAllCheckbox.checked) {
+    for (const site of selectable) selectedIds.add(site.id);
+  } else {
+    for (const site of selectable) selectedIds.delete(site.id);
+  }
+  renderFilteredSites();
+});
+
+function getSelectedSites() {
+  return allSites.filter((s) => selectedIds.has(s.id));
+}
+
+async function runBulkAction(action, button, { commitMessage } = {}) {
+  const targets = getSelectedSites().filter((s) => s.cloned);
+  if (targets.length === 0) {
+    alert("선택된(clone된) 사이트가 없습니다.");
+    return;
+  }
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  const results = [];
+  for (let i = 0; i < targets.length; i++) {
+    const site = targets[i];
+    button.textContent = `처리 중... (${i + 1}/${targets.length})`;
+    try {
+      const body = action === "push" ? JSON.stringify({ commit_message: commitMessage || "" }) : undefined;
+      const result = await api(`/api/sites/${site.id}/${action}`, { method: "POST", body });
+      results.push({ site, ok: result.ok, message: result.message });
+    } catch (err) {
+      results.push({ site, ok: false, message: err.message });
+    }
+  }
+  button.disabled = false;
+  button.textContent = originalLabel;
+  const failed = results.filter((r) => !r.ok);
+  const summary =
+    `${results.length}개 중 ${results.length - failed.length}개 성공` +
+    (failed.length ? `, ${failed.length}개 실패:\n` + failed.map((r) => `- ${r.site.name}: ${r.message}`).join("\n") : "");
+  alert(summary);
+  await loadSites();
+  await loadActivity();
+}
+
+bulkPullBtn.addEventListener("click", () => runBulkAction("pull", bulkPullBtn));
+
+bulkPushBtn.addEventListener("click", () => {
+  const targets = getSelectedSites().filter((s) => s.cloned);
+  if (targets.length === 0) {
+    alert("선택된(clone된) 사이트가 없습니다.");
+    return;
+  }
+  const commitMessage = window.prompt(
+    `선택된 ${targets.length}개 사이트에 공통으로 사용할 커밋 메시지를 입력하세요 (선택)`,
+    ""
+  );
+  if (commitMessage === null) return; // cancelled
+  runBulkAction("push", bulkPushBtn, { commitMessage });
+});
 
 const activityTbody = document.getElementById("activity-tbody");
 

@@ -54,9 +54,24 @@
 
     <section class="panel">
       <h2>사이트 목록</h2>
+      <div class="toolbar">
+        <input type="search" id="site-search" placeholder="이름 / URL / 설명 검색" />
+        <select id="status-filter">
+          <option value="all">전체 상태</option>
+          <option value="not_cloned">Not cloned</option>
+          <option value="dirty">변경사항 있음</option>
+          <option value="behind">Pull 필요</option>
+          <option value="ahead">Push 필요</option>
+          <option value="clean">최신 상태</option>
+        </select>
+        <span class="toolbar-spacer"></span>
+        <button type="button" id="bulk-pull-btn">선택 일괄 Pull</button>
+        <button type="button" id="bulk-push-btn">선택 일괄 Push</button>
+      </div>
       <table id="sites-table">
         <thead>
           <tr>
+            <th><input type="checkbox" id="select-all-checkbox" /></th>
             <th>이름</th>
             <th>저장소 URL</th>
             <th>브랜치</th>
@@ -66,7 +81,7 @@
           </tr>
         </thead>
         <tbody id="sites-tbody">
-          <tr><td colspan="6" class="empty-row">불러오는 중...</td></tr>
+          <tr><td colspan="7" class="empty-row">불러오는 중...</td></tr>
         </tbody>
       </table>
     </section>
