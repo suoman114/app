@@ -252,8 +252,8 @@ function renderSites(sites) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td></td>
-      <td>${escapeHtml(site.name)}</td>
-      <td>${escapeHtml(site.repo_url)}</td>
+      <td class="name-cell">${escapeHtml(site.name)}</td>
+      <td class="url-cell">${escapeHtml(site.repo_url)}</td>
       <td>${escapeHtml(site.branch)}</td>
       <td>${statusBadgesHtml(site)}</td>
       <td class="sync-time">${formatSyncTime(site.last_synced_at)}</td>

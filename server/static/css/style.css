@@ -60,8 +60,13 @@ header h1 { margin-bottom: 4px; }
   opacity: 0.8;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -70,6 +75,24 @@ th, td {
   text-align: left;
   padding: 8px 6px;
   border-bottom: 1px solid var(--border);
+  /* Korean text has no spaces, so the default line-breaking rules treat
+     every syllable as a break point — in a narrow column that fragments
+     names/descriptions into single characters per line. Keep CJK runs
+     unbroken and only fall back to breaking when a single run (e.g. a
+     long URL) truly has nowhere else to break. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.url-cell {
+  /* URLs are one long unbroken run with no natural break points, so
+     unlike other cells they should break anywhere rather than overflow. */
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+.name-cell {
+  white-space: nowrap;
 }
 
 .empty-row { text-align: center; opacity: 0.6; }
