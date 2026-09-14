@@ -1,5 +1,6 @@
 import re
 import shutil
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,7 +10,7 @@ from sqlmodel import Session, select
 from server import git_ops
 from server.config import REPOS_DIR
 from server.db import get_session
-from server.models import BitbucketConfig, Site
+from server.models import ActivityLog, BitbucketConfig, Site
 
 router = APIRouter(prefix="/api/sites", tags=["sites"])
 
@@ -42,6 +43,19 @@ def _bitbucket_creds(session: Session) -> tuple[str, str]:
     if config is None or not config.username or not config.app_password:
         raise HTTPException(400, "Bitbucket 인증 정보(사용자명/App Password)가 설정되지 않았습니다.")
     return config.username, config.app_password
+
+
+def _log_activity(session: Session, site: Site, action: str, result: git_ops.GitOpResult) -> None:
+    session.add(
+        ActivityLog(
+            site_id=site.id,
+            site_name=site.name,
+            action=action,
+            ok=result.ok,
+            message=result.message,
+        )
+    )
+    session.commit()
 
 
 class SiteIn(BaseModel):
@@ -170,11 +184,10 @@ def clone_site(site_id: int, session: Session = Depends(get_session)):
     username, app_password = _bitbucket_creds(session)
     result = git_ops.clone(site.repo_url, site.branch, _site_path(site), username, app_password)
     if result.ok:
-        from datetime import datetime
-
         site.last_synced_at = datetime.utcnow()
         session.add(site)
         session.commit()
+    _log_activity(session, site, "clone", result)
     return ActionResult(ok=result.ok, message=result.message)
 
 
@@ -186,11 +199,10 @@ def pull_site(site_id: int, session: Session = Depends(get_session)):
     username, app_password = _bitbucket_creds(session)
     result = git_ops.pull(site.repo_url, site.branch, _site_path(site), username, app_password)
     if result.ok:
-        from datetime import datetime
-
         site.last_synced_at = datetime.utcnow()
         session.add(site)
         session.commit()
+    _log_activity(session, site, "pull", result)
     return ActionResult(ok=result.ok, message=result.message)
 
 
@@ -204,9 +216,8 @@ def push_site(site_id: int, payload: PushIn, session: Session = Depends(get_sess
         site.repo_url, site.branch, _site_path(site), username, app_password, payload.commit_message
     )
     if result.ok:
-        from datetime import datetime
-
         site.last_synced_at = datetime.utcnow()
         session.add(site)
         session.commit()
+    _log_activity(session, site, "push", result)
     return ActionResult(ok=result.ok, message=result.message)

@@ -21,3 +21,13 @@ class BitbucketConfig(SQLModel, table=True):
     base_url: str = Field(default="")
     username: str = Field(default="")
     app_password: str = Field(default="")
+
+
+class ActivityLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    site_id: Optional[int] = Field(default=None, index=True)
+    site_name: str
+    action: str  # "clone" | "pull" | "push"
+    ok: bool
+    message: str
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)

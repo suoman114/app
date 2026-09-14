@@ -21,6 +21,9 @@ Scope:
 - `server/routers/settings.py` — Bitbucket auth settings endpoints.
   Never return the stored App Password in a GET response — mask it
   (e.g. return whether it's set, not its value).
+- `server/routers/activity.py` — read-only activity log listing.
+  Log entries are written by `sites.py`'s action endpoints
+  (`_log_activity`), not here.
 
 Conventions:
 

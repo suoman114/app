@@ -121,6 +121,7 @@ async function runAction(site, action, button) {
     button.disabled = false;
     button.textContent = originalLabel;
     await loadSites();
+    await loadActivity();
   }
 }
 
@@ -217,5 +218,36 @@ async function loadSites() {
   }
 }
 
+const activityTbody = document.getElementById("activity-tbody");
+
+function actionLabel(action) {
+  return { clone: "Clone", pull: "Pull", push: "Push" }[action] || action;
+}
+
+async function loadActivity() {
+  try {
+    const logs = await api("/api/activity?limit=50");
+    if (logs.length === 0) {
+      activityTbody.innerHTML = '<tr><td colspan="5" class="empty-row">아직 작업 이력이 없습니다.</td></tr>';
+      return;
+    }
+    activityTbody.innerHTML = logs
+      .map(
+        (log) => `
+      <tr>
+        <td class="sync-time">${formatSyncTime(log.created_at)}</td>
+        <td>${escapeHtml(log.site_name)}</td>
+        <td>${actionLabel(log.action)}</td>
+        <td><span class="badge ${log.ok ? "clean" : "behind"}">${log.ok ? "성공" : "실패"}</span></td>
+        <td>${escapeHtml(log.message)}</td>
+      </tr>`
+      )
+      .join("");
+  } catch (err) {
+    activityTbody.innerHTML = `<tr><td colspan="5" class="empty-row">오류: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
 loadSettings();
 loadSites();
+loadActivity();
