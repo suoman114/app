@@ -26,6 +26,17 @@ class GitOpResult:
     message: str
 
 
+@dataclass
+class SiteStatus:
+    cloned: bool
+    dirty: bool = False
+    ahead: int = 0
+    behind: int = 0
+    last_commit_message: str = ""
+    last_commit_date: str = ""
+    error: str = ""
+
+
 def _scrub(text: str) -> str:
     return _CRED_URL_RE.sub("https://***:***@", text)
 
@@ -91,8 +102,48 @@ def push(
             repo.git.add(A=True)
             repo.git.commit(m=commit_message or "Update via LTE-R VCS")
         repo.git.push(auth_url, f"{branch}:{branch}")
+        # We pushed to an explicit URL rather than the configured "origin"
+        # remote, so git does not auto-update the local origin/<branch>
+        # tracking ref. Do it ourselves so status() reflects the push
+        # immediately instead of showing a stale "ahead" count.
+        repo.git.update_ref(f"refs/remotes/origin/{branch}", repo.head.commit.hexsha)
         return GitOpResult(True, "push 완료")
     except GitCommandError as exc:
         return GitOpResult(False, f"push 실패: {_scrub(str(exc))}")
     except Exception as exc:  # noqa: BLE001
         return GitOpResult(False, f"push 실패: {_scrub(str(exc))}")
+
+
+def status(branch: str, dest_path: Path) -> SiteStatus:
+    """Local-only status: dirty/ahead/behind as of the last clone/pull/push.
+
+    Deliberately does not fetch from the remote (that would need
+    credentials and a network round trip on every site-list load) — call
+    `pull` to refresh what "behind" means.
+    """
+    if not is_cloned(dest_path):
+        return SiteStatus(cloned=False)
+    try:
+        repo = Repo(dest_path)
+        dirty = repo.is_dirty(untracked_files=True)
+        ahead = behind = 0
+        remote_ref = f"origin/{branch}"
+        if remote_ref in [str(r) for r in repo.refs]:
+            ahead = sum(1 for _ in repo.iter_commits(f"{remote_ref}..{branch}"))
+            behind = sum(1 for _ in repo.iter_commits(f"{branch}..{remote_ref}"))
+        last_commit_message = ""
+        last_commit_date = ""
+        if repo.head.is_valid():
+            head_commit = repo.head.commit
+            last_commit_message = head_commit.message.strip().splitlines()[0]
+            last_commit_date = head_commit.committed_datetime.isoformat()
+        return SiteStatus(
+            cloned=True,
+            dirty=dirty,
+            ahead=ahead,
+            behind=behind,
+            last_commit_message=last_commit_message,
+            last_commit_date=last_commit_date,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return SiteStatus(cloned=True, error=_scrub(str(exc)))

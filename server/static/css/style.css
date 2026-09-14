@@ -83,6 +83,13 @@ th, td {
 
 .badge.cloned { background: #1a7f3722; }
 .badge.not-cloned { background: #99999922; }
+.badge.clean { background: #1a7f3722; }
+.badge.dirty { background: #d3861822; }
+.badge.behind { background: #c0392b22; }
+.badge.ahead { background: #2f6fed22; }
+
+.badge-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.sync-time { font-size: 0.8rem; opacity: 0.75; white-space: nowrap; }
 
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 

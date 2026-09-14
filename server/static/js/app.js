@@ -135,9 +135,31 @@ async function deleteSite(site) {
   }
 }
 
+function statusBadgesHtml(site) {
+  if (!site.cloned) {
+    return '<span class="badge not-cloned">Not cloned</span>';
+  }
+  if (site.status_error) {
+    return `<span class="badge behind" title="${escapeHtml(site.status_error)}">상태 확인 오류</span>`;
+  }
+  const badges = [];
+  if (site.dirty) badges.push('<span class="badge dirty">변경사항 있음</span>');
+  if (site.behind > 0) badges.push(`<span class="badge behind">Pull 필요 (${site.behind})</span>`);
+  if (site.ahead > 0) badges.push(`<span class="badge ahead">Push 필요 (${site.ahead})</span>`);
+  if (badges.length === 0) badges.push('<span class="badge clean">최신 상태</span>');
+  return `<div class="badge-group">${badges.join("")}</div>`;
+}
+
+function formatSyncTime(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso + (iso.endsWith("Z") ? "" : "Z"));
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleString("ko-KR");
+}
+
 function renderSites(sites) {
   if (sites.length === 0) {
-    sitesTbody.innerHTML = '<tr><td colspan="5" class="empty-row">등록된 사이트가 없습니다.</td></tr>';
+    sitesTbody.innerHTML = '<tr><td colspan="6" class="empty-row">등록된 사이트가 없습니다.</td></tr>';
     return;
   }
   sitesTbody.innerHTML = "";
@@ -147,7 +169,8 @@ function renderSites(sites) {
       <td>${escapeHtml(site.name)}</td>
       <td>${escapeHtml(site.repo_url)}</td>
       <td>${escapeHtml(site.branch)}</td>
-      <td><span class="badge ${site.cloned ? "cloned" : "not-cloned"}">${site.cloned ? "Cloned" : "Not cloned"}</span></td>
+      <td>${statusBadgesHtml(site)}</td>
+      <td class="sync-time">${formatSyncTime(site.last_synced_at)}</td>
       <td class="row-actions"></td>
     `;
     const actionsCell = tr.querySelector(".row-actions");
@@ -190,7 +213,7 @@ async function loadSites() {
     const sites = await api("/api/sites");
     renderSites(sites);
   } catch (err) {
-    sitesTbody.innerHTML = `<tr><td colspan="5" class="empty-row">오류: ${escapeHtml(err.message)}</td></tr>`;
+    sitesTbody.innerHTML = `<tr><td colspan="6" class="empty-row">오류: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 

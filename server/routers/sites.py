@@ -59,6 +59,13 @@ class SiteOut(BaseModel):
     slug: str
     description: str
     cloned: bool
+    dirty: bool
+    ahead: int
+    behind: int
+    last_commit_message: str
+    last_commit_date: str
+    last_synced_at: Optional[str]
+    status_error: str
 
 
 class ActionResult(BaseModel):
@@ -71,6 +78,7 @@ class PushIn(BaseModel):
 
 
 def _to_out(site: Site) -> SiteOut:
+    st = git_ops.status(site.branch, _site_path(site))
     return SiteOut(
         id=site.id,
         name=site.name,
@@ -78,7 +86,14 @@ def _to_out(site: Site) -> SiteOut:
         branch=site.branch,
         slug=site.slug,
         description=site.description,
-        cloned=git_ops.is_cloned(_site_path(site)),
+        cloned=st.cloned,
+        dirty=st.dirty,
+        ahead=st.ahead,
+        behind=st.behind,
+        last_commit_message=st.last_commit_message,
+        last_commit_date=st.last_commit_date,
+        last_synced_at=site.last_synced_at.isoformat() if site.last_synced_at else None,
+        status_error=st.error,
     )
 
 

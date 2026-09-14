@@ -76,12 +76,19 @@ data/                      # 런타임 생성 (SQLite DB, clone 워크스페이�
 
 - 2026-09-14: 초기 스캐폴딩 생성. FastAPI + SQLite + GitPython 스택,
   사이트 CRUD, Bitbucket 설정(App Password), clone/pull/push MVP 구현.
+- 2026-09-14: 사이트별 git 상태 표시 추가 (`git_ops.status`). 원격에
+  매번 fetch하지 않고 마지막 clone/pull/push 시점 기준 로컬 정보만
+  사용 — dirty(미커밋 변경), ahead/behind, 마지막 커밋 메시지/시각을
+  계산. push 후에는 로컬 `origin/<branch>` 추적 ref를 직접 갱신해
+  ahead 카운트가 바로 0으로 반영되도록 함(명시적 URL로 push하면 git이
+  추적 ref를 자동 갱신하지 않는 점 보완). 메인 화면에 상태 배지
+  (변경사항 있음/Pull 필요/Push 필요/최신 상태)와 마지막 동기화 시각
+  컬럼 추가.
 
 ## 5. 다음 기능 후보 (하나씩 검토 후 추가)
 
 아직 구현하지 않은 항목. 사용자와 협의 후 우선순위를 정해 하나씩 추가한다.
 
-- 사이트별 git 상태 표시(ahead/behind, uncommitted changes, 마지막 커밋)
 - 브랜치 전환/다중 브랜치 지원
 - 여러 사이트에 대한 일괄 pull/push
 - 사이트 검색/필터/지역별 그룹핑
