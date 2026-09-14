@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LTE-R VCS</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>LTE-R VCS</h1>
+    <p class="subtitle">사이트별 패키지 저장소 관리</p>
+  </header>
+
+  <main>
+    <section class="panel" id="settings-panel">
+      <h2>Bitbucket 인증 설정</h2>
+      <form id="settings-form" class="form-grid">
+        <label>Base URL
+          <input type="text" name="base_url" placeholder="https://bitbucket.company.com" />
+        </label>
+        <label>사용자명
+          <input type="text" name="username" placeholder="사용자명" />
+        </label>
+        <label>App Password
+          <input type="password" name="app_password" placeholder="설정되어 있으면 비워두면 유지됩니다" />
+        </label>
+        <button type="submit">저장</button>
+        <span id="settings-status" class="status-text"></span>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>사이트 추가</h2>
+      <form id="site-form" class="form-grid">
+        <input type="hidden" name="id" />
+        <label>사이트 이름
+          <input type="text" name="name" required />
+        </label>
+        <label>저장소 URL
+          <input type="text" name="repo_url" placeholder="https://bitbucket.company.com/scm/proj/repo.git" required />
+        </label>
+        <label>브랜치
+          <input type="text" name="branch" value="main" />
+        </label>
+        <label>설명
+          <input type="text" name="description" />
+        </label>
+        <button type="submit" id="site-form-submit">추가</button>
+        <button type="button" id="site-form-cancel" hidden>수정 취소</button>
+        <span id="site-form-status" class="status-text"></span>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>사이트 목록</h2>
+      <div class="toolbar">
+        <input type="search" id="site-search" placeholder="이름 / URL / 설명 검색" />
+        <select id="status-filter">
+          <option value="all">전체 상태</option>
+          <option value="not_cloned">Not cloned</option>
+          <option value="dirty">변경사항 있음</option>
+          <option value="behind">Pull 필요</option>
+          <option value="ahead">Push 필요</option>
+          <option value="clean">최신 상태</option>
+        </select>
+        <span class="toolbar-spacer"></span>
+        <button type="button" id="bulk-pull-btn">선택 일괄 Pull</button>
+        <button type="button" id="bulk-push-btn">선택 일괄 Push</button>
+      </div>
+      <div class="table-scroll">
+        <table id="sites-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select-all-checkbox" /></th>
+              <th>이름</th>
+              <th>저장소 URL</th>
+              <th>브랜치</th>
+              <th>상태</th>
+              <th>마지막 동기화</th>
+              <th>액션</th>
+            </tr>
+          </thead>
+          <tbody id="sites-tbody">
+            <tr><td colspan="7" class="empty-row">불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" id="files-panel" hidden>
+      <div class="files-header">
+        <h2>파일 탐색기 — <span id="files-site-name"></span></h2>
+        <button type="button" id="files-close-btn">닫기</button>
+      </div>
+      <div id="files-breadcrumb" class="breadcrumb"></div>
+      <div id="files-status" class="status-text"></div>
+      <table id="files-table">
+        <tbody id="files-tbody">
+          <tr><td class="empty-row">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+
+      <div class="upload-row">
+        <input type="file" id="upload-input" />
+        <button type="button" id="upload-btn">현재 폴더에 업로드</button>
+        <span id="upload-status" class="status-text"></span>
+      </div>
+
+      <div id="file-editor" hidden>
+        <div class="editor-toolbar">
+          <strong id="editor-path"></strong>
+          <span class="toolbar-spacer"></span>
+          <button type="button" id="editor-save-btn">저장</button>
+          <button type="button" id="editor-save-push-btn">저장 + Push</button>
+          <button type="button" id="editor-close-btn">편집기 닫기</button>
+        </div>
+        <textarea id="editor-textarea" rows="18" spellcheck="false"></textarea>
+        <span id="editor-status" class="status-text"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>최근 작업 이력</h2>
+      <div class="table-scroll">
+        <table id="activity-table">
+          <thead>
+            <tr>
+              <th>시간</th>
+              <th>사이트</th>
+              <th>액션</th>
+              <th>결과</th>
+              <th>메시지</th>
+            </tr>
+          </thead>
+          <tbody id="activity-tbody">
+            <tr><td colspan="5" class="empty-row">불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

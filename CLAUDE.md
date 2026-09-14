@@ -1,0 +1,174 @@
+# LTE-R VCS — 패키지 관리 프로그램
+
+사내 Bitbucket과 연동해 LTE-R 사이트별 패키지(소스/설정) 저장소를
+clone / pull / push 하고, 메인 화면에서 사이트를 추가·수정·삭제하며
+관리하는 로컬 웹앱입니다.
+
+이 문서는 이 저장소에서 **Claude Code를 오케스트레이터로** 사용해
+개발을 진행하기 위한 기준 문서입니다. 메인 세션(오케스트레이터)은
+아래 서브에이전트(`.claude/agents/*.md`)에게 작업을 위임하고,
+서브에이전트의 결과를 검증한 뒤 통합합니다.
+
+## 1. 아키텍처
+
+- **런타임**: 로컬에서 `uvicorn`으로 FastAPI 서버를 띄우고, 브라우저로
+  `http://localhost:8000` 접속해 사용하는 로컬 웹앱.
+- **백엔드**: Python 3.11+, FastAPI, SQLModel(SQLite), GitPython.
+- **프론트엔드**: 서버 렌더링(Jinja2) + 최소한의 바닐라 JS(fetch 기반
+  SPA-lite). 별도 빌드 도구 없이 `server/static`에서 직접 서빙.
+- **데이터 저장**: `data/lte-r-vcs.db` (SQLite, gitignore 대상).
+  사이트별 clone 작업공간은 `data/repos/<site-slug>/`.
+- **Bitbucket 인증**: HTTP + App Password. 자격증명은 `git` 명령 실행
+  시점에만 URL에 주입하고, **`.git/config`나 디스크에 평문으로
+  영구 저장하지 않는다** (매 clone/pull/push 호출마다 인증 URL을
+  즉석에서 구성해 GitPython에 전달). 이 정책은 절대 깨지 않는다.
+
+## 2. 디렉터리 구조
+
+```
+CLAUDE.md
+README.md
+requirements.txt
+.gitignore
+.claude/agents/           # 서브에이전트 정의
+server/
+  main.py                 # FastAPI app, 라우터 등록, "/" 메인 화면
+  config.py                # 경로/설정 상수
+  db.py                    # SQLModel 엔진/세션
+  models.py                # Site, BitbucketConfig, ActivityLog 모델
+  git_ops.py                # clone/pull/push/status/진행률 등 git 연동 로직
+  routers/
+    sites.py               # 사이트 CRUD + clone/pull/push + 진행률 API
+    settings.py             # Bitbucket 인증 설정 API
+    activity.py              # 작업 이력 조회 API
+    files.py                 # clone된 사이트 파일 탐색/편집/업로드 API
+  templates/               # Jinja2 템플릿 (메인 화면 등)
+  static/css, static/js     # 스타일/클라이언트 스크립트
+data/                      # 런타임 생성 (SQLite DB, clone 워크스페이스). gitignore.
+```
+
+사이트의 clone 폴더 이름(`Site.slug`)은 사이트 이름에서 파일명으로
+쓸 수 없는 문자만 제거한 값이다(한글 등 유니코드는 그대로 유지) —
+`data/repos/<사이트 이름>/`으로 저장되어 사람이 봐도 어떤 사이트인지
+바로 알 수 있게 한다. 이름이 중복되면 `-2`, `-3`을 붙여 유일하게
+만든다. 사이트 이름을 나중에 수정해도 이미 만들어진 clone 폴더명은
+바뀌지 않는다(재이름 변경 시 폴더까지 옮기는 기능은 아직 없음).
+
+## 3. 오케스트레이션 방식 (서브에이전트)
+
+메인 세션은 기능 단위로 아래 에이전트에게 위임한다. 모든 에이전트는
+"작업 시작 전 `token-guardian`에게 접근 방식을 확인" 원칙을 따른다
+(사소한 1~2파일 수정까지 매번 확인할 필요는 없고, 여러 파일을 읽거나
+서브에이전트를 새로 스폰해야 할지 애매할 때 확인한다).
+
+| 에이전트 | 역할 | 주요 파일 |
+|---|---|---|
+| `token-guardian` | 토큰 사용을 통제하는 정책/검토 에이전트. 불필요한 전체 파일 읽기, 중복 서브에이전트 스폰, 과도한 컨텍스트 누적을 막고 더 좁은 접근 방식을 제안한다. | 없음 (읽기 전용 검토자) |
+| `bitbucket-ops` | Bitbucket 연동(clone/pull/push), 자격증명 처리, git 관련 API | `server/git_ops.py`, `server/routers/sites.py`의 git 액션 부분 |
+| `backend-dev` | FastAPI 라우터, 모델, DB 스키마, 사이트 CRUD 비즈니스 로직 | `server/main.py`, `server/models.py`, `server/db.py`, `server/routers/*.py` |
+| `frontend-dev` | 메인 화면 UI(사이트 목록/추가/수정/삭제 폼), 정적 자산 | `server/templates/*.html`, `server/static/**` |
+
+새 기능을 추가할 때는 이 표에 맞춰 담당 에이전트를 먼저 정하고,
+여러 에이전트가 겹치는 작업(예: API 스키마 변경이 UI에도 영향)은
+오케스트레이터가 순서를 정해 순차 위임한다.
+
+### token-guardian 운용 원칙 (전체 세션 공통)
+
+- 파일 전체를 읽기 전에 `Grep`/`Glob`으로 필요한 범위를 먼저 좁힌다.
+- 큰 파일은 관련된 라인 범위만 `Read`의 offset/limit으로 읽는다.
+- 이미 알고 있는 내용을 다시 조사하기 위해 서브에이전트를 재사용/스폰하지 않는다.
+- 관련된 수정은 개별 Edit 호출로 흩뿌리지 않고 가능한 한 모아서 처리한다.
+- 대화가 길어지면 진행 상황을 CLAUDE.md의 "진행 로그"(4절)에 요약해
+  다음 세션/에이전트가 전체 히스토리를 다시 읽지 않아도 되게 한다.
+
+## 4. 진행 로그 (요약, 최신순으로 추가)
+
+- 2026-09-14: 초기 스캐폴딩 생성. FastAPI + SQLite + GitPython 스택,
+  사이트 CRUD, Bitbucket 설정(App Password), clone/pull/push MVP 구현.
+- 2026-09-14: 사이트별 git 상태 표시 추가 (`git_ops.status`). 원격에
+  매번 fetch하지 않고 마지막 clone/pull/push 시점 기준 로컬 정보만
+  사용 — dirty(미커밋 변경), ahead/behind, 마지막 커밋 메시지/시각을
+  계산. push 후에는 로컬 `origin/<branch>` 추적 ref를 직접 갱신해
+  ahead 카운트가 바로 0으로 반영되도록 함(명시적 URL로 push하면 git이
+  추적 ref를 자동 갱신하지 않는 점 보완). 메인 화면에 상태 배지
+  (변경사항 있음/Pull 필요/Push 필요/최신 상태)와 마지막 동기화 시각
+  컬럼 추가.
+- 2026-09-14: 작업 이력 로그 추가. clone/pull/push 실행 시 성공/실패
+  여부와 무관하게 `ActivityLog`에 기록(사이트 삭제 후에도 이력이
+  남도록 site_name을 스냅샷으로 저장). `GET /api/activity`로 최근
+  이력 조회, 메인 화면 하단에 "최근 작업 이력" 표 추가, 각 액션 실행
+  직후 자동 갱신.
+- 2026-09-14: 일괄 pull/push + 검색/필터 추가. 새 API 엔드포인트 없이
+  프런트엔드에서 기존 단건 pull/push 엔드포인트를 순차 호출하는
+  방식으로 구현(개별 작업 이력이 자동으로 남음). 이름/URL/설명
+  텍스트 검색과 상태(Not cloned/변경사항 있음/Pull 필요/Push 필요/
+  최신 상태) 필터를 클라이언트 사이드로 적용. 체크박스는 clone된
+  사이트만 선택 가능. 일괄 Push는 커밋 메시지를 한 번만 입력받아
+  선택된 모든 사이트에 동일하게 사용. Playwright로 실제 브라우저에서
+  검색/필터/전체선택/일괄 pull 동작 확인 완료.
+- 2026-09-14: clone/pull/push 진행률 표시 추가. clone은 GitPython의
+  `RemoteProgress` 콜백을, pull/push는 명시적 URL을 쓰는 설계상 GitPython
+  Remote 객체를 못 쓰므로 `git ... --progress`를 subprocess로 직접 실행해
+  stderr를 실시간으로 파싱하는 방식(`_run_git_streaming`)을 각각 사용.
+  진행 상태는 사이트별로 메모리에 저장하고 `GET /api/sites/{id}/progress`로
+  노출, 프런트엔드가 액션 진행 중 0.6초 간격으로 폴링해 버튼 텍스트에
+  퍼센트/메시지를 표시(단건·일괄 작업 모두). 로컬 파일 경로 clone은 git이
+  하드링크 최적화를 써서 진행률이 안 나올 수 있음을 테스트로 확인—
+  실제 Bitbucket HTTPS clone/pull/push에서는 항상 네트워크 전송이라
+  해당 없음.
+- 2026-09-14: clone 폴더명을 사이트 이름 기반으로 변경(`_slugify`가
+  유니코드를 보존하고 파일명 금지 문자만 치환 — 이전에는 ASCII만
+  남겨서 한글 이름이 전부 "site"/"site-2"가 됐었음). 사이트별 파일
+  탐색기 추가: `server/routers/files.py`가 clone된 작업공간을
+  path traversal 방지 검증(`Path.relative_to`)을 거쳐 노출 —
+  디렉터리 목록(`GET .../files`), 파일 내용 조회/저장
+  (`GET/PUT .../files/content`, 바이너리는 편집 대신 안내 메시지),
+  업로드(`POST .../files/upload`, 업로드 파일명은 `Path(...).name`으로
+  경로 요소 제거 후 사용). 메인 화면에 "파일" 버튼 → 탐색기 패널
+  (브레드크럼 클릭 네비게이션, 파일 클릭 시 에디터, 업로드 폼).
+  저장/업로드 성공 시 바로 Push할지 확인 후 기존 push 엔드포인트를
+  재사용(별도 커밋 로직 없이 push()의 "dirty면 add+commit" 동작에
+  그대로 올라탐). Playwright로 디렉터리 진입/파일 열기/편집저장/
+  업로드/바이너리 파일 처리까지 실제 브라우저에서 확인, git_ops.push를
+  직접 호출해 편집·업로드된 내용이 원격에 정상 반영되는 것도 확인.
+- 2026-09-14: (버그 수정) `uvicorn --reload`가 `data/`까지 통째로
+  감시하는 바람에, clone/pull한 사이트 저장소 안에 `.py` 파일이
+  생기거나 바뀔 때마다 서버 전체가 재시작되어 진행 중이던 요청(다른
+  사이트의 clone 포함)이 끊기는 문제를 재현·확인. `WatchFiles detected
+  changes in 'data/repos/<site>/app.py'. Reloading...` 로그로 원인
+  특정. README의 실행 명령을 `--reload-dir server`로 감시 범위를
+  좁히도록 수정(재현 테스트로 재시작 없이 유지되는 것 확인), 실제
+  사용 시에는 `--reload` 없이 실행하도록 안내 분리.
+
+## 5. 다음 기능 후보 (하나씩 검토 후 추가)
+
+아직 구현하지 않은 항목. 사용자와 협의 후 우선순위를 정해 하나씩 추가한다.
+
+- 브랜치 전환/다중 브랜치 지원
+- 지역별 그룹핑
+- SSH 키 인증 지원 추가
+- App Password 저장 방식 강화(OS 키체인 연동 등)
+- 인증/권한(다중 사용자, 로그인)
+- 파일 탐색기: 파일/디렉터리 삭제, 새 디렉터리 생성, push 전 diff 미리보기
+- 사이트 이름 수정 시 기존 clone 폴더명도 함께 변경(현재는 최초 clone
+  시점 이름만 반영되고 이후 수정은 폴더명에 반영 안 됨)
+
+## 6. 로컬 실행
+
+```
+pip install -r requirements.txt
+
+# 실제 사용
+uvicorn server.main:app --host 0.0.0.0 --port 8000
+
+# LTE-R VCS 코드 자체를 수정하며 확인할 때만 (반드시 --reload-dir server 같이 사용)
+uvicorn server.main:app --reload --reload-dir server
+```
+
+`--reload-dir server` 없이 `--reload`만 쓰면 감시 범위가 `data/`까지
+포함돼, clone/pull한 사이트 저장소 안의 `.py` 파일이 바뀔 때마다
+서버가 재시작되어 진행 중인 작업이 끊긴다(4절 진행 로그의 버그 수정
+항목 참고). 이 프로젝트에서는 절대 `--reload-dir` 없이 `--reload`를
+쓰지 않는다.
+
+브라우저에서 `http://localhost:8000` 접속.

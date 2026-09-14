@@ -1,0 +1,12 @@
+fastapi>=0.111
+uvicorn[standard]>=0.30
+sqlmodel>=0.0.21
+jinja2>=3.1
+python-multipart>=0.0.9
+GitPython>=3.1
+
+# Pinned transitive dep of sqlmodel->sqlalchemy: newer greenlet releases
+# stop shipping manylinux2014 wheels, which forces a source build that
+# fails on hosts with an old system g++ (e.g. GCC 4.8 on RHEL7/CentOS7,
+# which lacks C++11 by default). 3.2.5 still ships a manylinux2014 wheel.
+greenlet==3.2.5

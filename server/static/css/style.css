@@ -1,0 +1,255 @@
+:root {
+  color-scheme: light dark;
+  --border: #d0d5dd;
+  --bg-panel: #ffffff10;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+header h1 { margin-bottom: 4px; }
+.subtitle { margin-top: 0; opacity: 0.7; }
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.panel h2 { margin-top: 0; font-size: 1.05rem; }
+
+.form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  gap: 4px;
+  flex: 1 1 180px;
+}
+
+.form-grid input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.form-grid button {
+  padding: 7px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  height: fit-content;
+}
+
+.status-text {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  /* Korean text has no spaces, so the default line-breaking rules treat
+     every syllable as a break point — in a narrow column that fragments
+     names/descriptions into single characters per line. Keep CJK runs
+     unbroken and only fall back to breaking when a single run (e.g. a
+     long URL) truly has nowhere else to break. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.url-cell {
+  /* URLs are one long unbroken run with no natural break points, so
+     unlike other cells they should break anywhere rather than overflow. */
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+.name-cell {
+  white-space: nowrap;
+}
+
+.empty-row { text-align: center; opacity: 0.6; }
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.badge.cloned { background: #1a7f3722; }
+.badge.not-cloned { background: #99999922; }
+.badge.clean { background: #1a7f3722; }
+.badge.dirty { background: #d3861822; }
+.badge.behind { background: #c0392b22; }
+.badge.ahead { background: #2f6fed22; }
+
+.badge-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.sync-time { font-size: 0.8rem; opacity: 0.75; white-space: nowrap; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.toolbar input[type="search"] {
+  flex: 1 1 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.toolbar select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.toolbar-spacer { flex: 1 1 auto; }
+
+.toolbar button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.row-actions button {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.row-actions button.danger { border-color: #c0392b; color: #c0392b; }
+
+.files-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.files-header h2 { margin-bottom: 0; }
+
+.files-header button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.breadcrumb {
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
+
+.breadcrumb a {
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.breadcrumb a:hover { text-decoration: underline; }
+
+#files-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+#files-table td {
+  padding: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+#files-table a {
+  text-decoration: none;
+  color: inherit;
+}
+
+#files-table a:hover { text-decoration: underline; }
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.upload-row button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+#file-editor {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.editor-toolbar button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+#editor-textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  resize: vertical;
+}
